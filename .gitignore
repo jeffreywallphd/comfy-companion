@@ -8,25 +8,25 @@ out
 package-lock.json
 
 # Keep folder structure
-!data/.gitkeep
-!data/images/local/.gitkeep
-!data/images/manifests/.gitkeep
-!data/generations/.gitkeep
-!data/assets/.gitkeep
-!data/local-workflows/.gitkeep
-!data/logs/.gitkeep
+!src/data/.gitkeep
+!src/data/images/local/.gitkeep
+!src/data/images/manifests/.gitkeep
+!src/data/generations/.gitkeep
+!src/data/assets/.gitkeep
+!src/data/local-workflows/.gitkeep
+!src/data/logs/.gitkeep
 
 # Ignore non keep files
-data/images/local/*
-data/images/manifests/*
-data/generations/*
-data/ammendments/*
-data/assets/*
-data/logs/*
-data/**/*.png
-data/**/*.jpg
-data/**/*.jpeg
-data/**/*.webp
-data/**/*.gif
-data/**/*.bmp
-data/**/*.tiff
+src/data/images/local/*
+src/data/images/manifests/*
+src/data/generations/*
+src/data/ammendments/*
+src/data/assets/*
+src/data/logs/*
+src/data/**/*.png
+src/data/**/*.jpg
+src/data/**/*.jpeg
+src/data/**/*.webp
+src/data/**/*.gif
+src/data/**/*.bmp
+src/data/**/*.tiff
