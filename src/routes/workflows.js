@@ -25,7 +25,8 @@ const {
 const {
     resolveImageSelection,
     copyLocalImageToComfyInput,
-    registerPendingCleanup
+    registerPendingCleanup,
+    removeFiles
 } = require("../services/imageLibraryService");
 
 const {
@@ -35,6 +36,8 @@ const {
 
 const { waitForPromptOutputs } = require("../services/comfyResultService");
 const { moveComfyOutputToGenerations } = require("../services/generationLibraryService");
+
+const router = express.Router();
 
 function extractDefaultValues(workflow, editableFields = []) {
     const values = {};
@@ -55,28 +58,6 @@ function extractDefaultValues(workflow, editableFields = []) {
 
     return values;
 }
-
-function buildPatchesFromOverrides(editableFields = [], overrides = {}) {
-    const patches = [];
-
-    for (const field of editableFields) {
-        const fieldKey = field.key || field.label || `${field.nodeId}.${field.inputName}`;
-
-        if (!(fieldKey in overrides)) {
-            continue;
-        }
-
-        patches.push({
-            nodeId: String(field.nodeId),
-            inputName: field.inputName,
-            value: overrides[fieldKey]
-        });
-    }
-
-    return patches;
-}
-
-const router = express.Router();
 
 router.get("/", async (req, res) => {
     try {
@@ -140,26 +121,6 @@ router.get("/item/:source/:workflowId", async (req, res) => {
 
         res.json({
             workflowItem: item,
-            defaultValues: extractDefaultValues(item.workflow, item.editableFields || [])
-        });
-    } catch (error) {
-        console.error("[routes/workflows] Failed to load workflow item:", error);
-        res.status(500).json({
-            error: "Failed to load workflow item",
-            details: error.message
-        });
-    }
-});
-
-router.get("/item/:source/:workflowId", async (req, res) => {
-    try {
-        const { source, workflowId } = req.params;
-        const decodedWorkflowId = decodeURIComponent(workflowId);
-
-        const item = await getWorkflowById(source, decodedWorkflowId);
-
-        res.json({
-            workflowItem: item,
             defaultValues: buildDefaultValuesFromEditableFields(item.editableFields || [])
         });
     } catch (error) {
@@ -184,6 +145,8 @@ router.post("/:fileName/patch", async (req, res) => {
 });
 
 router.post("/run", async (req, res) => {
+    const cleanupFiles = [];
+
     try {
         const { source, workflowId, overrides = {} } = req.body;
 
@@ -202,7 +165,6 @@ router.post("/run", async (req, res) => {
         const item = await getWorkflowById(source, workflowId);
         const editableFields = item.editableFields || [];
         const preparedOverrides = { ...overrides };
-        const cleanupFiles = [];
 
         // Resolve image selections before applying workflow overrides
         for (const field of editableFields) {
@@ -226,8 +188,21 @@ router.post("/run", async (req, res) => {
                 const copied = await copyLocalImageToComfyInput(resolved.fileName);
                 preparedOverrides[field.key] = copied.tempFileName;
                 cleanupFiles.push(copied.targetPath);
+
+                console.log("[routes/workflows] Copied local image to ComfyUI input:", {
+                    fieldKey: field.key,
+                    sourceFile: resolved.fileName,
+                    tempFileName: copied.tempFileName,
+                    targetPath: copied.targetPath
+                });
             } else {
                 preparedOverrides[field.key] = resolved.fileName;
+
+                console.log("[routes/workflows] Using existing image from source:", {
+                    fieldKey: field.key,
+                    source: resolved.source,
+                    fileName: resolved.fileName
+                });
             }
         }
 
@@ -237,9 +212,9 @@ router.post("/run", async (req, res) => {
                 item.editableFields || [],
                 preparedOverrides
             );
-        
+
             console.log("[routes/workflows] ComfyUI UI-format workflow overrides applied.");
-        
+
             let promptWorkflow = convertWorkflowToPrompt(patchedUiWorkflow);
             promptWorkflow = forceUniqueSaveImagePrefixes(promptWorkflow);
 
@@ -247,20 +222,25 @@ router.post("/run", async (req, res) => {
                 "[routes/workflows] Converted ComfyUI UI workflow to API prompt format:",
                 Object.keys(promptWorkflow)
             );
-        
+
+            console.log(
+                "[routes/workflows] Final prompt workflow preview:",
+                JSON.stringify(promptWorkflow, null, 2).slice(0, 6000)
+            );
+
             const comfyResponse = await queuePrompt(promptWorkflow);
-        
+
             await registerPendingCleanup(comfyResponse.prompt_id, cleanupFiles);
-        
+
             const result = await waitForPromptOutputs(comfyResponse.prompt_id);
             const movedGenerations = [];
-        
+
             for (const image of result.images) {
                 if (image.type !== "output") continue;
                 const moved = await moveComfyOutputToGenerations(image.fileName, image.subfolder);
                 movedGenerations.push(moved);
             }
-        
+
             return res.json({
                 ok: true,
                 source,
@@ -275,32 +255,38 @@ router.post("/run", async (req, res) => {
 
         if (source === "local") {
             const patches = [];
+
             for (const field of item.editableFields || []) {
                 if (!(field.key in preparedOverrides)) continue;
-        
+
                 patches.push({
                     nodeId: String(field.nodeId),
                     inputName: field.inputName,
                     value: preparedOverrides[field.key]
                 });
             }
-        
+
             let runnableWorkflow = patchWorkflow(item.workflow, patches);
             runnableWorkflow = forceUniqueSaveImagePrefixes(runnableWorkflow);
 
+            console.log(
+                "[routes/workflows] Final local runnable workflow preview:",
+                JSON.stringify(runnableWorkflow, null, 2).slice(0, 6000)
+            );
+
             const comfyResponse = await queuePrompt(runnableWorkflow);
-        
+
             await registerPendingCleanup(comfyResponse.prompt_id, cleanupFiles);
-        
+
             const result = await waitForPromptOutputs(comfyResponse.prompt_id);
             const movedGenerations = [];
-        
+
             for (const image of result.images) {
                 if (image.type !== "output") continue;
                 const moved = await moveComfyOutputToGenerations(image.fileName, image.subfolder);
                 movedGenerations.push(moved);
             }
-        
+
             return res.json({
                 ok: true,
                 source,
@@ -317,26 +303,31 @@ router.post("/run", async (req, res) => {
         });
     } catch (error) {
         console.error("[routes/workflows] Failed to run workflow:", error);
-    
+
         if (error.promptHistory) {
             console.error(
                 "[routes/workflows] Prompt history at failure:",
                 JSON.stringify(error.promptHistory, null, 2)
             );
         }
-    
+
         if (error.history) {
             console.error(
                 "[routes/workflows] Full history payload at failure:",
                 JSON.stringify(error.history, null, 2)
             );
         }
-    
+
         res.status(500).json({
             error: "Failed to run workflow",
             details: error.message,
             completedWithoutImages: Boolean(error.completedWithoutImages)
         });
+    } finally {
+        if (cleanupFiles.length > 0) {
+            console.log("[routes/workflows] Cleaning up temporary ComfyUI input files:", cleanupFiles);
+            await removeFiles(cleanupFiles);
+        }
     }
 });
 

@@ -1,15 +1,23 @@
 const express = require("express");
 const path = require("path");
 const fs = require("fs/promises");
+const multer = require("multer");
 const config = require("../config/config");
 const {
   LOCAL_IMAGE_DIR,
   listLocalImages,
-  listComfyInputImages
+  listComfyInputImages,
+  saveUploadedLocalImage
 } = require("../services/imageLibraryService");
 const { GENERATIONS_DIR } = require("../services/generationLibraryService");
 
 const router = express.Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 20 * 1024 * 1024
+  }
+});
 
 function isImageFile(fileName) {
   return /\.(png|jpg|jpeg|webp|bmp|gif)$/i.test(fileName);
@@ -170,39 +178,68 @@ router.get("/images", async (req, res) => {
   }
 });
 
-router.delete("/image/:source/:fileName", async (req, res) => {
-    try {
-      const source = String(req.params.source || "").toLowerCase();
-      const safeName = path.basename(req.params.fileName);
-  
-      if (source !== "local" && source !== "generation" && source !== "comfyui") {
-        return res.status(400).json({
-          error: `Deletion is not supported for source: ${source}`
-        });
-      }
-  
-      const fullPath = resolveAssetPath(source, safeName);
-      await fs.unlink(fullPath);
-  
-      res.json({
-        success: true,
-        source,
-        fileName: safeName
-      });
-    } catch (error) {
-      console.error("[routes/assets] Failed to delete image:", error);
-  
-      if (error.code === "ENOENT") {
-        return res.status(404).json({
-          error: "Image not found"
-        });
-      }
-  
-      return res.status(500).json({
-        error: "Failed to delete image",
-        details: error.message
+router.post("/upload", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        error: "No image file was uploaded."
       });
     }
+
+    if (!req.file.mimetype || !req.file.mimetype.startsWith("image/")) {
+      return res.status(400).json({
+        error: "Uploaded file must be an image."
+      });
+    }
+
+    const asset = await saveUploadedLocalImage(req.file);
+
+    res.json({
+      ok: true,
+      asset
+    });
+  } catch (error) {
+    console.error("[routes/assets] Failed to upload image:", error);
+    res.status(500).json({
+      error: "Failed to upload image",
+      details: error.message
+    });
+  }
+});
+
+router.delete("/image/:source/:fileName", async (req, res) => {
+  try {
+    const source = String(req.params.source || "").toLowerCase();
+    const safeName = path.basename(req.params.fileName);
+
+    if (source !== "local" && source !== "generation" && source !== "comfyui") {
+      return res.status(400).json({
+        error: `Deletion is not supported for source: ${source}`
+      });
+    }
+
+    const fullPath = resolveAssetPath(source, safeName);
+    await fs.unlink(fullPath);
+
+    res.json({
+      success: true,
+      source,
+      fileName: safeName
+    });
+  } catch (error) {
+    console.error("[routes/assets] Failed to delete image:", error);
+
+    if (error.code === "ENOENT") {
+      return res.status(404).json({
+        error: "Image not found"
+      });
+    }
+
+    return res.status(500).json({
+      error: "Failed to delete image",
+      details: error.message
+    });
+  }
 });
 
 module.exports = router;

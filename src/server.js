@@ -7,6 +7,7 @@ const systemRouter = require("./routes/system");
 const assetsRouter = require("./routes/assets");
 const generationsRouter = require("./routes/generations");
 const mediaAssetsRouter = require("./routes/mediaAssets");
+const uploadsRouter = require("./routes/uploads");
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.get("/health", (req, res) => {
 /* Public media routes */
 app.use("/media/assets", mediaAssetsRouter);
 app.use("/media/generations", generationsRouter);
+app.use("/upload", uploadsRouter);
 
 /* API-key protection only for /api routes */
 app.use("/api", (req, res, next) => {

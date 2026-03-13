@@ -89,7 +89,7 @@ function generateSeed() {
     return Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
 }
 
-function renderInput(field, value, onChange, imageOptions = [], onNewSeed) {
+function renderInput(field, value, onChange, imageOptions = [], onNewSeed, onImageUploadComplete) {
   const type = (field.type || "string").toLowerCase();
   const key = getFieldKey(field);
   const label = field.label || field.key || key;
@@ -103,15 +103,16 @@ function renderInput(field, value, onChange, imageOptions = [], onNewSeed) {
 
   if (type === "image_select") {
     return (
-      <label className="wf-form-field" key={key}>
+      <div className="wf-form-field" key={key}>
         {labelBlock}
         <ImageSelectField
           field={field}
           value={value}
           onChange={onChange}
           imageOptions={imageOptions}
+          onUploadComplete={onImageUploadComplete}
         />
-      </label>
+      </div>
     );
   }
 
@@ -402,6 +403,24 @@ export default function WorkflowDetailsPage() {
     }));
   }
 
+  function handleImageUploadComplete(asset) {
+    setImageOptions((prev) => {
+      const exists = prev.some(
+        (item) => item.source === asset.source && item.fileName === asset.fileName
+      );
+  
+      if (exists) {
+        return prev.map((item) =>
+          item.source === asset.source && item.fileName === asset.fileName
+            ? asset
+            : item
+        );
+      }
+  
+      return [asset, ...prev];
+    });
+  }
+
   async function handleRunWorkflow() {
     if (!workflow) return;
 
@@ -657,13 +676,14 @@ export default function WorkflowDetailsPage() {
                               {group.fields
                                 .sort((a, b) => (a.inputSortOrder ?? 999) - (b.inputSortOrder ?? 999))
                                 .map((field) =>
-                                    renderInput(
-                                        field,
-                                        formValues[getFieldKey(field)] ?? field.defaultValue ?? "",
-                                        handleFieldChange,
-                                        imageOptions,
-                                        handleNewSeed
-                                    )
+                                  renderInput(
+                                    field,
+                                    formValues[getFieldKey(field)] ?? field.defaultValue ?? "",
+                                    handleFieldChange,
+                                    imageOptions,
+                                    handleNewSeed,
+                                    handleImageUploadComplete
+                                  )
                                 )}
                             </div>
                           </section>

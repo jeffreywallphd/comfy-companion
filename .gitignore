@@ -6,3 +6,27 @@ out
 *.log
 .DS_Store
 package-lock.json
+
+# Keep folder structure
+!data/.gitkeep
+!data/images/local/.gitkeep
+!data/images/manifests/.gitkeep
+!data/generations/.gitkeep
+!data/assets/.gitkeep
+!data/local-workflows/.gitkeep
+!data/logs/.gitkeep
+
+# Ignore non keep files
+data/images/local/*
+data/images/manifests/*
+data/generations/*
+data/ammendments/*
+data/assets/*
+data/logs/*
+data/**/*.png
+data/**/*.jpg
+data/**/*.jpeg
+data/**/*.webp
+data/**/*.gif
+data/**/*.bmp
+data/**/*.tiff

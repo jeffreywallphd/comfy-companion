@@ -2223,3 +2223,15 @@ button:disabled {
   object-fit: contain;
   border-radius: 12px;
 }
+
+.image-select-hidden-input {
+  display: none;
+}
+
+.image-select-upload-row {
+  margin-bottom: 0.75rem;
+}
+
+.image-select-upload-button {
+  width: 100%;
+}

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { uploadAssetImage } from "../api/assets";
 
 function getOptionValue(option) {
   return `${option.source}:${option.fileName}`;
@@ -13,11 +14,14 @@ export default function ImageSelectField({
   field,
   value,
   onChange,
-  imageOptions = []
+  imageOptions = [],
+  onUploadComplete
 }) {
   const [open, setOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
+  const [uploading, setUploading] = useState(false);
   const containerRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const currentValue = getDisplayValue(value);
 
@@ -32,7 +36,7 @@ export default function ImageSelectField({
 
     return imageOptions.filter((option) => {
       const haystack =
-        `${option.displayName} ${option.fileName} ${option.source}`.toLowerCase();
+        `${option.displayName || ""} ${option.name || ""} ${option.fileName || ""} ${option.source || ""}`.toLowerCase();
       return haystack.includes(query);
     });
   }, [imageOptions, searchText]);
@@ -75,8 +79,55 @@ export default function ImageSelectField({
     setSearchText("");
   }
 
+  function openFilePicker() {
+    fileInputRef.current?.click();
+  }
+
+  async function handleFileSelected(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    try {
+      setUploading(true);
+
+      const response = await uploadAssetImage(file);
+      const asset = response?.asset;
+
+      if (!asset) {
+        throw new Error("Upload succeeded but no asset was returned.");
+      }
+
+      if (typeof onUploadComplete === "function") {
+        onUploadComplete(asset);
+      }
+
+      onChange(field.key, {
+        source: asset.source,
+        fileName: asset.fileName
+      });
+
+      setOpen(false);
+      setSearchText("");
+    } catch (error) {
+      console.error("[ImageSelectField] Failed to upload image:", error);
+      window.alert(error.message || "Failed to upload image.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <div className="image-select-field" ref={containerRef}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="image-select-hidden-input"
+        onChange={handleFileSelected}
+      />
+
       <button
         type="button"
         className={`image-select-trigger ${open ? "image-select-trigger-open" : ""}`}
@@ -88,12 +139,14 @@ export default function ImageSelectField({
               <img
                 className="image-select-trigger-thumb"
                 src={selectedOption.thumbnailUrl}
-                alt={selectedOption.displayName}
+                alt={selectedOption.displayName || selectedOption.fileName}
               />
             </div>
 
             <div className="image-select-trigger-text">
-              <div className="image-select-trigger-name">{selectedOption.displayName}</div>
+              <div className="image-select-trigger-name">
+                {selectedOption.displayName || selectedOption.fileName}
+              </div>
               <div className="image-select-trigger-meta">
                 {selectedOption.source === "local" ? "Orchestrator" : "ComfyUI"}
               </div>
@@ -125,6 +178,17 @@ export default function ImageSelectField({
             </button>
           </div>
 
+          <div className="image-select-upload-row">
+            <button
+              type="button"
+              className="image-select-upload-button"
+              onClick={openFilePicker}
+              disabled={uploading}
+            >
+              {uploading ? "Uploading..." : "Upload Image"}
+            </button>
+          </div>
+
           <div className="image-select-options">
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option) => {
@@ -141,12 +205,14 @@ export default function ImageSelectField({
                       <img
                         className="image-select-option-thumb"
                         src={option.thumbnailUrl}
-                        alt={option.displayName}
+                        alt={option.displayName || option.fileName}
                       />
                     </div>
 
                     <div className="image-select-option-text">
-                      <div className="image-select-option-name">{option.displayName}</div>
+                      <div className="image-select-option-name">
+                        {option.displayName || option.fileName}
+                      </div>
                       <div className="image-select-option-meta">
                         {option.source === "local" ? "Orchestrator" : "ComfyUI"}
                       </div>

@@ -23,6 +23,62 @@ function safeNowStamp() {
     return new Date().toISOString().replace(/[:.]/g, "-");
 }
 
+function sanitizeFileName(fileName) {
+    const ext = path.extname(fileName || "").toLowerCase();
+    const base = path.basename(fileName || "image", ext).replace(/[^\w.-]+/g, "_");
+    return `${base || "image"}${ext}`;
+}
+
+async function getUniqueLocalFileName(originalFileName) {
+    await ensureImageDirs();
+
+    const ext = path.extname(originalFileName || "").toLowerCase();
+    const safeBase = path.basename(originalFileName || "image", ext).replace(/[^\w.-]+/g, "_") || "image";
+
+    let candidate = `${safeBase}${ext}`;
+    let counter = 1;
+
+    while (true) {
+        const fullPath = path.join(LOCAL_IMAGE_DIR, candidate);
+        try {
+            await fs.access(fullPath);
+            candidate = `${safeBase}__${counter}${ext}`;
+            counter += 1;
+        } catch {
+            return candidate;
+        }
+    }
+}
+
+async function saveUploadedLocalImage(file) {
+    if (!file) {
+        throw new Error("No upload file was provided.");
+    }
+
+    await ensureImageDirs();
+
+    const originalName = sanitizeFileName(file.originalname || "image");
+    const finalFileName = await getUniqueLocalFileName(originalName);
+    const targetPath = path.join(LOCAL_IMAGE_DIR, finalFileName);
+
+    await fs.writeFile(targetPath, file.buffer);
+
+    const stats = await fs.stat(targetPath);
+
+    return {
+        id: `local:${finalFileName}`,
+        source: "local",
+        fileName: finalFileName,
+        displayName: finalFileName,
+        name: finalFileName,
+        path: targetPath,
+        size: stats.size,
+        modifiedAt: stats.mtime.toISOString(),
+        thumbnailUrl: `/media/assets/local/${encodeURIComponent(finalFileName)}`,
+        downloadUrl: `/media/assets/local/${encodeURIComponent(finalFileName)}`
+    };
+}
+
 async function listLocalImages() {
     await ensureImageDirs();
 
@@ -37,8 +93,10 @@ async function listLocalImages() {
         source: "local",
         fileName,
         displayName: fileName,
+        name: fileName,
         path: path.join(LOCAL_IMAGE_DIR, fileName),
-        thumbnailUrl: `/api/assets/local-image/${encodeURIComponent(fileName)}`
+        thumbnailUrl: `/media/assets/local/${encodeURIComponent(fileName)}`,
+        downloadUrl: `/media/assets/local/${encodeURIComponent(fileName)}`
     }));
 }
 
@@ -59,8 +117,10 @@ async function listComfyInputImages() {
             source: "comfyui",
             fileName,
             displayName: fileName,
+            name: fileName,
             path: path.join(config.comfyInputDir, fileName),
-            thumbnailUrl: `${config.comfyUrl}/view?filename=${encodeURIComponent(fileName)}&type=input`
+            thumbnailUrl: `/media/assets/comfyui/${encodeURIComponent(fileName)}`,
+            downloadUrl: `/media/assets/comfyui/${encodeURIComponent(fileName)}`
         }));
     } catch (error) {
         console.error("[imageLibraryService] Failed to list ComfyUI input images:", error.message);
@@ -174,6 +234,18 @@ async function registerPendingCleanup(promptId, files = []) {
     await writeCleanupRegistry(registry);
 }
 
+async function removeFiles(filePaths = []) {
+    for (const filePath of filePaths) {
+        try {
+            await fs.unlink(filePath);
+        } catch (error) {
+            if (error.code !== "ENOENT") {
+                console.error("[imageLibraryService] Failed to delete temp file:", filePath, error.message);
+            }
+        }
+    }
+}
+
 module.exports = {
     LOCAL_IMAGE_DIR,
     listImagesBySource,
@@ -181,5 +253,7 @@ module.exports = {
     listComfyInputImages,
     resolveImageSelection,
     copyLocalImageToComfyInput,
-    registerPendingCleanup
+    registerPendingCleanup,
+    saveUploadedLocalImage,
+    removeFiles
 };

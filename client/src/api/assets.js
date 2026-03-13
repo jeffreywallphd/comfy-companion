@@ -42,3 +42,29 @@ export function deleteAsset(asset) {
     }
   );
 }
+
+export async function uploadAssetImage(file) {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const response = await fetch("/upload/image", {
+    method: "POST",
+    body: formData
+  });
+
+  const contentType = response.headers.get("content-type") || "";
+  const payload = contentType.includes("application/json")
+    ? await response.json()
+    : await response.text();
+
+  if (!response.ok) {
+    const message =
+      typeof payload === "string"
+        ? payload
+        : payload?.details || payload?.error || "Failed to upload image.";
+
+    throw new Error(message);
+  }
+
+  return payload;
+}
