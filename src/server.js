@@ -8,6 +8,7 @@ const assetsRouter = require("./routes/assets");
 const generationsRouter = require("./routes/generations");
 const mediaAssetsRouter = require("./routes/mediaAssets");
 const uploadsRouter = require("./routes/uploads");
+const comfyRoutes = require("./routes/comfy");
 
 const app = express();
 
@@ -48,6 +49,7 @@ app.use("/api/workflows", workflowsRouter);
 app.use("/api/system", systemRouter);
 app.use("/api/assets", assetsRouter);
 app.use("/api/generations", generationsRouter);
+app.use("/api/comfy", comfyRoutes);
 
 app.listen(config.port, "0.0.0.0", () => {
   console.log(`Server running on http://0.0.0.0:${config.port}`);

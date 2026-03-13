@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { apiFetch } from "../api/client";
 import { fetchImageOptions } from "../api/assets";
+import { fetchCheckpointModels } from "../api/comfy";
 
 import ImageSelectField from "../components/ImageSelectField";
 
@@ -89,7 +90,7 @@ function generateSeed() {
     return Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
 }
 
-function renderInput(field, value, onChange, imageOptions = [], onNewSeed, onImageUploadComplete) {
+function renderInput(field, value, onChange, imageOptions = [], checkpointModels = [], onNewSeed, onImageUploadComplete) {
   const type = (field.type || "string").toLowerCase();
   const key = getFieldKey(field);
   const label = field.label || field.key || key;
@@ -113,6 +114,25 @@ function renderInput(field, value, onChange, imageOptions = [], onNewSeed, onIma
           onUploadComplete={onImageUploadComplete}
         />
       </div>
+    );
+  }
+
+  if (type === "model_select") {
+    return (
+      <label className="wf-form-field" key={key}>
+        {labelBlock}
+        <select
+          value={value ?? ""}
+          onChange={(e) => onChange(key, e.target.value)}
+        >
+          <option value="">Select model</option>
+          {checkpointModels.map((model) => (
+            <option key={model} value={model}>
+              {model}
+            </option>
+          ))}
+        </select>
+      </label>
     );
   }
 
@@ -242,6 +262,7 @@ export default function WorkflowDetailsPage() {
   const [imageOptions, setImageOptions] = useState([]);
   const [generatedImages, setGeneratedImages] = useState([]);
   const [expandedImages, setExpandedImages] = useState({});
+  const [checkpointModels, setCheckpointModels] = useState([]);
 
   useEffect(() => {
     let mounted = true;
@@ -261,6 +282,19 @@ export default function WorkflowDetailsPage() {
     return () => {
       mounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    async function loadModels() {
+        try {
+            const models = await fetchCheckpointModels();
+            setCheckpointModels(models);
+        } catch (error) {
+            console.error("Failed to load checkpoints:", error);
+        }
+    }
+
+    loadModels();
   }, []);
 
   useEffect(() => {
@@ -681,6 +715,7 @@ export default function WorkflowDetailsPage() {
                                     formValues[getFieldKey(field)] ?? field.defaultValue ?? "",
                                     handleFieldChange,
                                     imageOptions,
+                                    checkpointModels,
                                     handleNewSeed,
                                     handleImageUploadComplete
                                   )

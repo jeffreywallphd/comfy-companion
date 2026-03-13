@@ -78,7 +78,7 @@
             "inputName": "ckpt_name",
             "label": "Model",
             "description": "Selects the main AI image model used to generate the final result.",
-            "type": "select",
+            "type": "model_select",
             "defaultVisible": true,
             "inputSortOrder": 1
           }
