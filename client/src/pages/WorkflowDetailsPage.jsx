@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { apiFetch } from "../api/client";
 import { fetchImageOptions } from "../api/assets";
@@ -90,7 +90,7 @@ function generateSeed() {
     return Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
 }
 
-function renderInput(field, value, onChange, imageOptions = [], checkpointModels = [], onNewSeed, onImageUploadComplete) {
+function renderInput(field,value,onChange,imageOptions = [],checkpointModels = [],checkpointModelsLoading = false,checkpointModelsError = "",onNewSeed,onImageUploadComplete) {
   const type = (field.type || "string").toLowerCase();
   const key = getFieldKey(field);
   const label = field.label || field.key || key;
@@ -118,20 +118,38 @@ function renderInput(field, value, onChange, imageOptions = [], checkpointModels
   }
 
   if (type === "model_select") {
+    const hasModels = checkpointModels.length > 0;
+    const disabled = checkpointModelsLoading || !hasModels;
+  
     return (
       <label className="wf-form-field" key={key}>
         {labelBlock}
         <select
           value={value ?? ""}
           onChange={(e) => onChange(key, e.target.value)}
+          disabled={disabled}
         >
-          <option value="">Select model</option>
-          {checkpointModels.map((model) => (
-            <option key={model} value={model}>
-              {model}
+          {checkpointModelsLoading ? (
+            <option value="">Loading models...</option>
+          ) : hasModels ? (
+            <>
+              <option value="">Select model</option>
+              {checkpointModels.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </>
+          ) : (
+            <option value={value ?? ""}>
+              {value || "ComfyUI unavailable"}
             </option>
-          ))}
+          )}
         </select>
+  
+        {checkpointModelsError ? (
+          <span className="wf-muted-text">{checkpointModelsError}</span>
+        ) : null}
       </label>
     );
   }
@@ -263,6 +281,8 @@ export default function WorkflowDetailsPage() {
   const [generatedImages, setGeneratedImages] = useState([]);
   const [expandedImages, setExpandedImages] = useState({});
   const [checkpointModels, setCheckpointModels] = useState([]);
+  const [checkpointModelsLoading, setCheckpointModelsLoading] = useState(false);
+  const [checkpointModelsError, setCheckpointModelsError] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -284,17 +304,87 @@ export default function WorkflowDetailsPage() {
     };
   }, []);
 
-  useEffect(() => {
-    async function loadModels() {
-        try {
-            const models = await fetchCheckpointModels();
-            setCheckpointModels(models);
-        } catch (error) {
-            console.error("Failed to load checkpoints:", error);
-        }
-    }
+  const [runMenuOpen, setRunMenuOpen] = useState(false);
+const runMenuRef = useRef(null);
 
+useEffect(() => {
+  function handleDocumentClick(event) {
+    if (!runMenuRef.current) return;
+    if (!runMenuRef.current.contains(event.target)) {
+      setRunMenuOpen(false);
+    }
+  }
+
+  function handleEscape(event) {
+    if (event.key === "Escape") {
+      setRunMenuOpen(false);
+    }
+  }
+
+  document.addEventListener("mousedown", handleDocumentClick);
+  document.addEventListener("keydown", handleEscape);
+
+  return () => {
+    document.removeEventListener("mousedown", handleDocumentClick);
+    document.removeEventListener("keydown", handleEscape);
+  };
+}, []);
+
+function isSeedField(field) {
+  return (
+    field.inputName === "seed" ||
+    field.key?.toLowerCase().includes("seed") ||
+    field.label?.toLowerCase().includes("seed")
+  );
+}
+
+function buildVariationOverrides() {
+  const nextOverrides = { ...formValues };
+  let changed = false;
+
+  for (const field of editableFields) {
+    if (!isSeedField(field)) continue;
+
+    const key = getFieldKey(field);
+    nextOverrides[key] = generateSeed();
+    changed = true;
+  }
+
+  return {
+    overrides: nextOverrides,
+    changed
+  };
+}
+
+  useEffect(() => {
+    let mounted = true;
+  
+    async function loadModels() {
+      try {
+        setCheckpointModelsLoading(true);
+        setCheckpointModelsError("");
+  
+        const models = await fetchCheckpointModels();
+  
+        if (!mounted) return;
+        setCheckpointModels(Array.isArray(models) ? models : []);
+      } catch (error) {
+        console.error("Failed to load checkpoints:", error);
+        if (!mounted) return;
+        setCheckpointModels([]);
+        setCheckpointModelsError("Checkpoint list unavailable because ComfyUI is offline or unreachable.");
+      } finally {
+        if (mounted) {
+          setCheckpointModelsLoading(false);
+        }
+      }
+    }
+  
     loadModels();
+  
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -455,29 +545,32 @@ export default function WorkflowDetailsPage() {
     });
   }
 
-  async function handleRunWorkflow() {
+  async function handleRunWorkflow(overridesArg = null) {
     if (!workflow) return;
-
+  
     try {
       setRunning(true);
       setRunMessage("");
       setError("");
-
+      setRunMenuOpen(false);
+  
+      const overridesToUse = overridesArg || formValues;
+  
       const payload = {
         source: workflow.source,
         workflowId: workflow.id || workflow.fileName,
-        overrides: formValues
+        overrides: overridesToUse
       };
-
+  
       console.log("[WorkflowDetailsPage] Sending workflow run request:", payload);
-
+  
       const response = await apiFetch("/api/workflows/run", {
         method: "POST",
         body: JSON.stringify(payload)
       });
-
+  
       setGeneratedImages(response.generations || []);
-
+  
       setRunMessage(
         response?.comfyResponse?.prompt_id
           ? `Workflow queued successfully. Prompt ID: ${response.comfyResponse.prompt_id}`
@@ -530,6 +623,21 @@ export default function WorkflowDetailsPage() {
           [fieldKey]: newSeed
         }));
     }
+
+    async function handleRunWorkflowWithVariation() {
+      if (!workflow) return;
+    
+      const { overrides, changed } = buildVariationOverrides();
+    
+      if (!changed) {
+        setError("No seed field is available for variation on this workflow.");
+        setRunMenuOpen(false);
+        return;
+      }
+    
+      setFormValues(overrides);
+      await handleRunWorkflow(overrides);
+    }  
 
   if (loading) {
     return (
@@ -716,6 +824,8 @@ export default function WorkflowDetailsPage() {
                                     handleFieldChange,
                                     imageOptions,
                                     checkpointModels,
+                                    checkpointModelsLoading,
+                                    checkpointModelsError,
                                     handleNewSeed,
                                     handleImageUploadComplete
                                   )
@@ -735,15 +845,6 @@ export default function WorkflowDetailsPage() {
         <div className="wf-actions">
           <button
             type="button"
-            className="wf-primary-button"
-            onClick={handleRunWorkflow}
-            disabled={running}
-          >
-            {running ? "Running..." : "Run Workflow"}
-          </button>
-
-          <button
-            type="button"
             className="wf-secondary-button"
             onClick={() => setFormValues({ ...defaultValues })}
           >
@@ -757,6 +858,51 @@ export default function WorkflowDetailsPage() {
           >
             {showJson ? "Hide Workflow JSON" : "View Workflow JSON"}
           </button>
+
+          <div className="wf-run-split" ref={runMenuRef}>
+            <button
+              type="button"
+              className="wf-primary-button wf-run-main-button"
+              onClick={handleRunWorkflowWithVariation}
+              disabled={running}
+            >
+              {running ? "Running..." : "Run with Variation"}
+            </button>
+
+            <button
+              type="button"
+              className="wf-primary-button wf-run-menu-button"
+              onClick={() => setRunMenuOpen((prev) => !prev)}
+              aria-haspopup="menu"
+              aria-expanded={runMenuOpen}
+              aria-label="Open run options"
+              disabled={running}
+            >
+              ▾
+            </button>
+
+            {runMenuOpen && (
+              <div className="wf-run-menu" role="menu">
+                <button
+                  type="button"
+                  className="wf-run-menu-item"
+                  role="menuitem"
+                  onClick={handleRunWorkflowWithVariation}
+                >
+                  Run with Variation
+                </button>
+
+                <button
+                  type="button"
+                  className="wf-run-menu-item"
+                  role="menuitem"
+                  onClick={() => handleRunWorkflow()}
+                >
+                  Run (same seed)
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 

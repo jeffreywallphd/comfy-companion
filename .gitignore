@@ -4,6 +4,7 @@ build
 out
 .env
 *.log
+*.pem
 .DS_Store
 package-lock.json
 
