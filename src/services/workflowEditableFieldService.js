@@ -106,18 +106,26 @@ function inferNodeInstanceLabel(node, workflowJson, graph) {
     }
 
     if (nodeType === "LoadImage") {
-        const reachesIpAdapter = hasDownstreamNodeType(graph, node.id, "IPAdapterFaceID");
-        if (reachesIpAdapter) {
+        const reachesFaceIpAdapter = hasDownstreamNodeType(graph, node.id, "IPAdapterFaceID");
+        const reachesCompositionIpAdapter = hasDownstreamNodeType(graph, node.id, "IPAdapter");
+
+        if (reachesFaceIpAdapter) {
             return "Reference Face Image";
+        } else if(reachesCompositionIpAdapter) {
+            return "Reference Body Image";
         }
 
         return "Reference Image";
     }
 
     if (nodeType === "ResizeAndPadImage") {
-        const reachesIpAdapter = hasDownstreamNodeType(graph, node.id, "IPAdapterFaceID");
-        if (reachesIpAdapter) {
+        const reachesFaceIpAdapter = hasDownstreamNodeType(graph, node.id, "IPAdapterFaceID");
+        const reachesCompositionIpAdapter = hasDownstreamNodeType(graph, node.id, "IPAdapter");
+
+        if (reachesFaceIpAdapter) {
             return "Reference Face Image Resize";
+        } else if(reachesCompositionIpAdapter) {
+            return "Reference Body Image Resize";
         }
 
         return "Main Input Resize";
@@ -128,7 +136,11 @@ function inferNodeInstanceLabel(node, workflowJson, graph) {
     }
 
     if (nodeType === "IPAdapterUnifiedLoader") {
-        return "IPAdapter Loader";
+        return "IPAdapter Identity Model Loader";
+    }
+
+    if (nodeType === "IPAdapterUnifiedLoaderCommunity") {
+        return "Body Composition Model Loader";
     }
 
     if (nodeType === "KSampler") {
@@ -137,6 +149,10 @@ function inferNodeInstanceLabel(node, workflowJson, graph) {
 
     if (nodeType === "IPAdapterFaceID") {
         return "Face Identity Settings";
+    }
+
+    if (nodeType === "IPAdapter") {
+        return "Body Composition Settings";
     }
 
     if (nodeType === "SaveImage") {
@@ -150,8 +166,11 @@ function inferOperationGroupKey(node, nodeDefinition, graph) {
     const defaultGroup = nodeDefinition.operationGroup || "ungrouped";
 
     if (node.type === "LoadImage" || node.type === "ResizeAndPadImage") {
-        const reachesIpAdapter = hasDownstreamNodeType(graph, node.id, "IPAdapterFaceID");
-        if (reachesIpAdapter) {
+        const reachesFaceIpAdapter = hasDownstreamNodeType(graph, node.id, "IPAdapterFaceID");
+        const reachesCompositionIpAdapter = hasDownstreamNodeType(graph, node.id, "IPAdapter");
+        if (reachesFaceIpAdapter) {
+            return "ipadapter";
+        } else if(reachesCompositionIpAdapter) {
             return "ipadapter";
         }
     }

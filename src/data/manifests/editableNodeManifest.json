@@ -99,6 +99,21 @@
           }
         ]
       },
+      "IPAdapterUnifiedLoaderCommunity": {
+        "displayName": "Load Identity Retention Model (IPAdapter Community)",
+        "operationGroup": "ipadapter",
+        "nodeSortOrder": 3,
+        "editableInputs": [
+          {
+            "inputName": "preset",
+            "label": "IPAdapter Model Preset",
+            "description": "Chooses the identity-retention preset that determines how the reference person is interpreted.",
+            "type": "select",
+            "defaultVisible": true,
+            "inputSortOrder": 1
+          }
+        ]
+      },
       "CLIPTextEncode": {
         "displayName": "Image Text Description",
         "operationGroup": "conditioning_sampling",
@@ -189,6 +204,21 @@
             "type": "number",
             "defaultVisible": true,
             "inputSortOrder": 2
+          }
+        ]
+      },
+      "IPAdapter": {
+        "displayName": "Composition Model (IPAdapter Composition)",
+        "operationGroup": "ipadapter",
+        "nodeSortOrder": 4,
+        "editableInputs": [
+          {
+            "inputName": "weight",
+            "label": "Strength of Composition Retention",
+            "description": "Controls how strongly the generated body should generally resemble the reference body.",
+            "type": "number",
+            "defaultVisible": true,
+            "inputSortOrder": 1
           }
         ]
       },
