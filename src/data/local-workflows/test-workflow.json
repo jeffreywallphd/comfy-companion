@@ -1,0 +1,37 @@
+{
+    "id": "sample-local-workflow",
+    "displayName": "Sample Local Workflow",
+    "description": "An example workflow stored only in the orchestrator app.",
+    "category": "Local Library",
+    "tags": ["local", "demo"],
+    "editableFields": [
+      {
+        "key": "positivePrompt",
+        "label": "Positive Prompt",
+        "type": "string",
+        "nodeId": "12",
+        "inputName": "text"
+      },
+      {
+        "key": "steps",
+        "label": "Steps",
+        "type": "number",
+        "nodeId": "22",
+        "inputName": "steps"
+      }
+    ],
+    "workflow": {
+      "12": {
+        "class_type": "CLIPTextEncode",
+        "inputs": {
+          "text": "A cinematic robot portrait"
+        }
+      },
+      "22": {
+        "class_type": "KSampler",
+        "inputs": {
+          "steps": 20
+        }
+      }
+    }
+  }

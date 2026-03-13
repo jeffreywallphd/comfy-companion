@@ -1,0 +1,211 @@
+{
+    "version": 3,
+    "operationGroups": {
+      "image_io": {
+        "label": "Image Loading and Alteration",
+        "sortOrder": 1
+      },
+      "model_loaders": {
+        "label": "AI Model Loading",
+        "sortOrder": 2
+      },
+      "conditioning_sampling": {
+        "label": "Generation Settings and Prompting",
+        "sortOrder": 3
+      },
+      "ipadapter": {
+        "label": "Identity Retention Settings",
+        "sortOrder": 4
+      },
+      "save_output": {
+        "label": "Save / Output Settings",
+        "sortOrder": 5
+      }
+    },
+    "nodeTypes": {
+      "LoadImage": {
+        "displayName": "Load Image",
+        "operationGroup": "image_io",
+        "nodeSortOrder": 1,
+        "editableInputs": [
+          {
+            "inputName": "image",
+            "label": "Image",
+            "description": "Choose the image file that will be used as input for this part of the workflow.",
+            "type": "image_select",
+            "defaultVisible": true,
+            "inputSortOrder": 1
+          }
+        ]
+      },
+      "ResizeAndPadImage": {
+        "displayName": "Resize and Pad Image",
+        "operationGroup": "image_io",
+        "nodeSortOrder": 2,
+        "editableInputs": [
+          {
+            "inputName": "target_width",
+            "label": "Target Width",
+            "description": "Sets the width the image should be resized to before generation continues.",
+            "type": "number",
+            "defaultVisible": true,
+            "inputSortOrder": 1
+          },
+          {
+            "inputName": "target_height",
+            "label": "Target Height",
+            "description": "Sets the height the image should be resized to before generation continues.",
+            "type": "number",
+            "defaultVisible": true,
+            "inputSortOrder": 2
+          },
+          {
+            "inputName": "padding_color",
+            "label": "Padding Color",
+            "description": "Chooses the color used to fill any empty space added around the resized image.",
+            "type": "select",
+            "defaultVisible": true,
+            "inputSortOrder": 3
+          }
+        ]
+      },
+      "CheckpointLoaderSimple": {
+        "displayName": "Load Model",
+        "operationGroup": "model_loaders",
+        "nodeSortOrder": 1,
+        "editableInputs": [
+          {
+            "inputName": "ckpt_name",
+            "label": "Model",
+            "description": "Selects the main AI image model used to generate the final result.",
+            "type": "select",
+            "defaultVisible": true,
+            "inputSortOrder": 1
+          }
+        ]
+      },
+      "IPAdapterUnifiedLoader": {
+        "displayName": "Load Identity Retention Model (IPAdapter)",
+        "operationGroup": "ipadapter",
+        "nodeSortOrder": 1,
+        "editableInputs": [
+          {
+            "inputName": "preset",
+            "label": "IPAdapter Model Preset",
+            "description": "Chooses the identity-retention preset that determines how the reference face or reference image is interpreted.",
+            "type": "select",
+            "defaultVisible": true,
+            "inputSortOrder": 1
+          }
+        ]
+      },
+      "CLIPTextEncode": {
+        "displayName": "Image Text Description",
+        "operationGroup": "conditioning_sampling",
+        "nodeSortOrder": 1,
+        "editableInputs": [
+          {
+            "inputName": "text",
+            "label": "Text",
+            "description": "Provides the written description that tells the AI what to create or what to avoid.",
+            "type": "text",
+            "defaultVisible": true,
+            "inputSortOrder": 1
+          }
+        ]
+      },
+      "KSampler": {
+        "displayName": "Image Generation Settings",
+        "operationGroup": "conditioning_sampling",
+        "nodeSortOrder": 2,
+        "editableInputs": [
+          {
+            "inputName": "steps",
+            "label": "Quality of Generation",
+            "description": "Controls how much effort the AI spends refining the image. Higher values usually improve detail but take longer.",
+            "type": "number",
+            "defaultVisible": true,
+            "inputSortOrder": 1
+          },
+          {
+            "inputName": "cfg",
+            "label": "Strength of Adherence to Textual Prompt",
+            "description": "Controls how strongly the image follows the written prompt instead of taking creative liberties.",
+            "type": "number",
+            "defaultVisible": true,
+            "inputSortOrder": 2
+          },
+          {
+            "inputName": "sampler_name",
+            "label": "Generation Method",
+            "description": "Chooses the underlying method used to generate the image. Different methods can produce different looks.",
+            "type": "select",
+            "defaultVisible": true,
+            "inputSortOrder": 3
+          },
+          {
+            "inputName": "scheduler",
+            "label": "Image Refinement Style",
+            "description": "Controls how the image is refined over the generation process.",
+            "type": "select",
+            "defaultVisible": true,
+            "inputSortOrder": 4
+          },
+          {
+            "inputName": "denoise",
+            "label": "Image Creativity",
+            "description": "Controls how freely the AI can change the starting image. Higher values usually allow more change and creativity.",
+            "type": "number",
+            "defaultVisible": true,
+            "inputSortOrder": 5
+          },
+          {
+            "inputName": "seed",
+            "label": "Generation Variation (seed)",
+            "description": "A number that influences which version of the image is created. Using the same settings and the same seed usually gives a very similar result.",
+            "type": "number",
+            "defaultVisible": true,
+            "inputSortOrder": 6
+          }
+        ]
+      },
+      "IPAdapterFaceID": {
+        "displayName": "Face Identity Model (IPAdapter FaceID)",
+        "operationGroup": "ipadapter",
+        "nodeSortOrder": 2,
+        "editableInputs": [
+          {
+            "inputName": "weight",
+            "label": "Strength of General Identity Retention",
+            "description": "Controls how strongly the generated face should generally resemble the reference identity.",
+            "type": "number",
+            "defaultVisible": true,
+            "inputSortOrder": 1
+          },
+          {
+            "inputName": "weight_faceidv2",
+            "label": "Strength of Face Feature Retention",
+            "description": "Controls how strongly detailed facial features from the reference face are preserved.",
+            "type": "number",
+            "defaultVisible": true,
+            "inputSortOrder": 2
+          }
+        ]
+      },
+      "SaveImage": {
+        "displayName": "Save Image",
+        "operationGroup": "save_output",
+        "nodeSortOrder": 1,
+        "editableInputs": [
+          {
+            "inputName": "filename_prefix",
+            "label": "Filename Prefix",
+            "description": "Sets the beginning of the saved file name so outputs are easier to identify.",
+            "type": "string",
+            "defaultVisible": true,
+            "inputSortOrder": 1
+          }
+        ]
+      }
+    }
+  }
