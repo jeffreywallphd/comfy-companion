@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import {
-    deleteAsset,
-    fetchAllAssets,
-    getAssetDownloadUrl,
-    getAssetViewUrl,
+  deleteAsset,
+  fetchAllAssets,
+  getAssetDownloadUrl,
+  getAssetViewUrl,
 } from "../api/assets";
 
 function formatDate(value) {
@@ -78,14 +78,14 @@ function FullScreenModal({ asset, onClose }) {
 }
 
 function AssetCard({ asset, onDelete, onViewFullScreen }) {
-    function handleSaveToDevice() {
-        const link = document.createElement("a");
-        link.href = getAssetDownloadUrl(asset);
-        link.download = asset.name || "image";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
+  function handleSaveToDevice() {
+    const link = document.createElement("a");
+    link.href = getAssetDownloadUrl(asset);
+    link.download = asset.name || "image";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 
   async function handleDelete() {
     const confirmed = window.confirm(
@@ -149,6 +149,7 @@ export default function AssetsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedAsset, setSelectedAsset] = useState(null);
+  const [deletingAllGenerations, setDeletingAllGenerations] = useState(false);
 
   async function loadAssets() {
     setLoading(true);
@@ -177,7 +178,7 @@ export default function AssetsPage() {
 
   async function handleDelete(asset) {
     try {
-        await deleteAsset(asset);
+      await deleteAsset(asset);
 
       setAssets((current) => current.filter((item) => item.id !== asset.id));
 
@@ -190,6 +191,39 @@ export default function AssetsPage() {
     }
   }
 
+  async function handleDeleteAllGenerations() {
+    if (generationAssets.length === 0) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete all ${generationAssets.length} generated image(s)?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeletingAllGenerations(true);
+
+      await Promise.all(generationAssets.map((asset) => deleteAsset(asset)));
+
+      const generationIds = new Set(generationAssets.map((asset) => asset.id));
+
+      setAssets((current) =>
+        current.filter((item) => !generationIds.has(item.id))
+      );
+
+      setSelectedAsset((current) =>
+        current && generationIds.has(current.id) ? null : current
+      );
+    } catch (err) {
+      console.error(err);
+      window.alert(err?.message || "Failed to delete all generated images.");
+    } finally {
+      setDeletingAllGenerations(false);
+    }
+  }
+
   const inputAssets = assets.filter((asset) => asset.source === "local");
   const generationAssets = assets.filter((asset) => asset.source === "generation");
   const comfyAssets = assets.filter((asset) => asset.source === "comfyui");
@@ -198,7 +232,7 @@ export default function AssetsPage() {
     <div className="assets-page">
       <div className="assets-page-header">
         <h1>Assets</h1>
-        <button type="button" onClick={loadAssets} disabled={loading}>
+        <button type="button" onClick={loadAssets} disabled={loading || deletingAllGenerations}>
           Refresh
         </button>
       </div>
@@ -232,7 +266,19 @@ export default function AssetsPage() {
           <section className="assets-section-card">
             <div className="assets-section-header">
               <h2>Generated Images</h2>
-              <span>{generationAssets.length}</span>
+              <div className="assets-section-header-actions">
+                <span>{generationAssets.length}</span>
+                {generationAssets.length > 0 ? (
+                  <button
+                    type="button"
+                    className="asset-card-delete"
+                    onClick={handleDeleteAllGenerations}
+                    disabled={deletingAllGenerations}
+                  >
+                    {deletingAllGenerations ? "Deleting..." : "Delete All"}
+                  </button>
+                ) : null}
+              </div>
             </div>
             <div className="assets-grid">
               {generationAssets.map((asset) => (

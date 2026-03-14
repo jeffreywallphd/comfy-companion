@@ -2605,3 +2605,9 @@
       min-width: 40px;
     }
   }
+
+  .assets-section-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
